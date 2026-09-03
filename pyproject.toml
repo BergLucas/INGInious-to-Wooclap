@@ -1,0 +1,82 @@
+[project]
+name = "INGInious-to-Wooclap"
+version = "0.1.0"
+description = "INGInious-to-Wooclap is a small script to convert the questions of INGInious to the format of Wooclap."
+authors = [
+    { name = "Berg Lucas", email = "55436804+BergLucas@users.noreply.github.com" },
+]
+readme = "README.md"
+license = "MIT"
+keywords = ["Poetry", "inginious_to_wooclap"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: MIT License",
+]
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "xlsxwriter (>=3.2.9,<4.0.0)",
+    "pyyaml (>=6.0.3,<7.0.0)",
+    "docutils (>=0.23,<0.24)",
+    "pygments (>=2.21.0,<3.0.0)",
+    "types-pyyaml (>=6.0.12.20260815,<7.0.0.0)",
+    "types-docutils (>=0.23.0.20260827,<0.24.0.0)",
+]
+
+[project.scripts]
+inginious-to-wooclap = "inginious_to_wooclap:main"
+
+[tool.poetry]
+requires-poetry = "^2.0.0"
+
+[tool.poetry.requires-plugins]
+poethepoet = "^0.33.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.9.10"
+mypy = "^1.15.0"
+coverage = "^7.6.12"
+
+[tool.poe.tasks]
+test = "python -m unittest -v"
+coverage = "coverage run -m unittest -v"
+coverage-report = ["coverage", { cmd = "coverage report" }]
+coverage-html = ["coverage", { cmd = "coverage html" }]
+format = "ruff format src tests"
+check = "ruff check --fix src tests"
+check-nofix = "ruff check src tests"
+check-unsafe = "ruff check --fix --unsafe src tests"
+typecheck = "mypy src tests"
+lint = ["format", "check", "typecheck"]
+verify = ["lint", "test"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/inginious_regex_short_answer_problem", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "N",   # pep8-naming
+    "I",   # isort
+    "C",   # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "S",   # flake8-bandit
+    "TCH", # flake8-type-checking
+    "Q",   # flake8-quotes
+    "PL",  # pylint
+]
+
+ignore = ["D100", "D104"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
