@@ -23,6 +23,14 @@ You can install the application using Git by running the following command:
 pip install git+https://github.com/BergLucas/INGInious-to-Wooclap.git
 ```
 
+## Usage
+
+You can use the application by running the following command:
+
+```bash
+inginious-to-wooclap <input_file>.yaml <output_file>.xlsx
+```
+
 ## License
 
 All code is licensed for others under a MIT license (see [LICENSE](https://github.com/BergLucas/INGInious-to-Wooclap/blob/main/LICENSE)).
