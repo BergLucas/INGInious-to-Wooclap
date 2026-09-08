@@ -40,7 +40,7 @@ class OpenQuestion:
 @dataclass(frozen=True)
 class MatchingQuestion:
     title: str
-    choices: dict[str, str]
+    choices: tuple[tuple[str, str], ...]
 
 
 REPLACEMENTS = {
@@ -193,11 +193,11 @@ def convert_regex_short_answer_problem(
 def convert_matching_problem(problem: dict, always_title: bool) -> MatchingQuestion:
     title = convert_title(problem, always_title)
 
-    choices: dict[str, str] = {}
+    choices: list[tuple[str, str]] = []
     for question in problem["questions"]:
-        choices[convert_rst(question.get("question", ""))] = question["answer"]
+        choices.append((convert_rst(question.get("question", "")), question["answer"]))
 
-    return MatchingQuestion(title, choices)
+    return MatchingQuestion(title, tuple(choices))
 
 
 def convert_match_problem(problem: dict, always_title: bool) -> OpenQuestion:
@@ -285,7 +285,7 @@ def main() -> None:
                         "",
                         *(
                             f"{question} --- {answer}"
-                            for (question, answer) in problem.choices.items()
+                            for (question, answer) in problem.choices
                         ),
                     )
                 )
