@@ -232,12 +232,18 @@ def main() -> None:
     parser.add_argument(
         "--title", action="store_true", help="Always show the title above the question"
     )
+    parser.add_argument(
+        "--split-matching",
+        action="store_true",
+        help="Split matching questions into multiple QCMs",
+    )
 
     args = parser.parse_args()
 
     path: str = args.path
     output_path: str = args.output_path
     always_title: bool = args.title
+    split_matching: bool = args.split_matching
 
     with open(path, "r") as f:
         content: dict = yaml.safe_load(f)
@@ -278,17 +284,29 @@ def main() -> None:
                     )
                 )
             case MatchingQuestion():
-                rows.append(
-                    (
-                        "Matching",
-                        problem.title,
-                        "",
-                        *(
-                            f"{question} --- {answer}"
-                            for (question, answer) in problem.choices
-                        ),
+                if split_matching:
+                    for i, (question, _) in enumerate(problem.choices, start=1):
+                        if question:
+                            rows.append(
+                                (
+                                    "MCQ",
+                                    f"{problem.title}\n{question}",
+                                    str(i),
+                                    *(answer for (_, answer) in problem.choices),
+                                )
+                            )
+                else:
+                    rows.append(
+                        (
+                            "Matching",
+                            problem.title,
+                            "",
+                            *(
+                                f"{question} --- {answer}"
+                                for (question, answer) in problem.choices
+                            ),
+                        )
                     )
-                )
 
     workbook = xlsxwriter.Workbook(output_path)
 
