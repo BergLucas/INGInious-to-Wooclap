@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import argparse
 import logging
+import random
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterable
 
 import xlsxwriter
 import yaml
@@ -30,17 +33,68 @@ class Qcm:
     correct: frozenset[int]
     choices: tuple[str, ...]
 
+    def randomise(self) -> Qcm:
+        radomised_choices = [
+            (choice, i in self.correct)
+            for i, choice in enumerate(self.choices, start=1)
+        ]
+        random.shuffle(radomised_choices)
+
+        correct: set[int] = set()
+        choices: list[str] = []
+        for i, (choice, valid) in enumerate(radomised_choices, start=1):
+            choices.append(choice)
+            if valid:
+                correct.add(i)
+
+        return Qcm(self.title, frozenset(correct), tuple(choices))
+
+    def as_row(self) -> tuple[str, ...]:
+        return (
+            "MCQ",
+            self.title,
+            ",".join(str(id) for id in self.correct),
+            *self.choices,
+        )
+
 
 @dataclass(frozen=True)
 class OpenQuestion:
     title: str
     choices: tuple[str, ...]
 
+    def as_row(self) -> tuple[str, ...]:
+        return (
+            "OpenQuestion",
+            self.title,
+            "",
+            *self.choices,
+        )
+
 
 @dataclass(frozen=True)
 class MatchingQuestion:
     title: str
     choices: tuple[tuple[str, str], ...]
+
+    def as_row(self) -> tuple[str, ...]:
+        return (
+            "Matching",
+            self.title,
+            "",
+            *(f"{question} --- {answer}" for (question, answer) in self.choices),
+        )
+
+    def as_qcms(self) -> Iterable[Qcm]:
+        return (
+            Qcm(
+                f"{self.title}\n{question}",
+                frozenset({i}),
+                tuple(answer for (_, answer) in self.choices),
+            )
+            for i, (question, _) in enumerate(self.choices, start=1)
+            if question
+        )
 
 
 REPLACEMENTS = {
@@ -158,10 +212,10 @@ def convert_multiple_choice_problem(problem: dict, always_title: bool) -> Qcm:
 
     correct: set[int] = set()
     choices: list[str] = []
-    for i, choice in enumerate(problem["choices"]):
+    for i, choice in enumerate(problem["choices"], start=1):
         choices.append(choice["text"])
         if choice["valid"]:
-            correct.add(i + 1)
+            correct.add(i)
 
     return Qcm(title, frozenset(correct), tuple(choices))
 
@@ -237,6 +291,11 @@ def main() -> None:
         action="store_true",
         help="Split matching questions into multiple QCMs",
     )
+    parser.add_argument(
+        "--randomise",
+        action="store_true",
+        help="Randomise the order of choices in QCMs",
+    )
 
     args = parser.parse_args()
 
@@ -244,6 +303,7 @@ def main() -> None:
     output_path: str = args.output_path
     always_title: bool = args.title
     split_matching: bool = args.split_matching
+    randomise: bool = args.randomise
 
     with open(path, "r") as f:
         content: dict = yaml.safe_load(f)
@@ -266,47 +326,21 @@ def main() -> None:
     for problem in converted_problems:
         match problem:
             case Qcm():
-                rows.append(
-                    (
-                        "MCQ",
-                        problem.title,
-                        ",".join(str(id) for id in problem.correct),
-                        *problem.choices,
-                    )
-                )
+                if randomise:
+                    problem = problem.randomise()
+
+                rows.append(problem.as_row())
             case OpenQuestion():
-                rows.append(
-                    (
-                        "OpenQuestion",
-                        problem.title,
-                        "",
-                        *problem.choices,
-                    )
-                )
+                rows.append(problem.as_row())
             case MatchingQuestion():
                 if split_matching:
-                    for i, (question, _) in enumerate(problem.choices, start=1):
-                        if question:
-                            rows.append(
-                                (
-                                    "MCQ",
-                                    f"{problem.title}\n{question}",
-                                    str(i),
-                                    *(answer for (_, answer) in problem.choices),
-                                )
-                            )
+                    for qcm in problem.as_qcms():
+                        if randomise:
+                            qcm = qcm.randomise()
+
+                        rows.append(qcm.as_row())
                 else:
-                    rows.append(
-                        (
-                            "Matching",
-                            problem.title,
-                            "",
-                            *(
-                                f"{question} --- {answer}"
-                                for (question, answer) in problem.choices
-                            ),
-                        )
-                    )
+                    rows.append(problem.as_row())
 
     workbook = xlsxwriter.Workbook(output_path)
 
