@@ -217,7 +217,12 @@ def convert_multiple_choice_problem(problem: dict, always_title: bool) -> Qcm:
         if choice["valid"]:
             correct.add(i)
 
-    return Qcm(title, frozenset(correct), tuple(choices))
+    qcm = Qcm(title, frozenset(correct), tuple(choices))
+
+    if not problem.get("unshuffle", False):
+        qcm = qcm.randomise()
+
+    return qcm
 
 
 def convert_regex_short_answer_problem(
@@ -250,6 +255,9 @@ def convert_matching_problem(problem: dict, always_title: bool) -> MatchingQuest
     choices: list[tuple[str, str]] = []
     for question in problem["questions"]:
         choices.append((convert_rst(question.get("question", "")), question["answer"]))
+
+    if not problem.get("unshuffle", False):
+        random.shuffle(choices)
 
     return MatchingQuestion(title, tuple(choices))
 
@@ -291,11 +299,6 @@ def main() -> None:
         action="store_true",
         help="Split matching questions into multiple QCMs",
     )
-    parser.add_argument(
-        "--randomise",
-        action="store_true",
-        help="Randomise the order of choices in QCMs",
-    )
 
     args = parser.parse_args()
 
@@ -303,7 +306,6 @@ def main() -> None:
     output_path: str = args.output_path
     always_title: bool = args.title
     split_matching: bool = args.split_matching
-    randomise: bool = args.randomise
 
     with open(path, "r") as f:
         content: dict = yaml.safe_load(f)
@@ -323,24 +325,18 @@ def main() -> None:
         ("Type", "Title", "Correct", *("Choice" for _ in range(max_choices)))
     ]
 
-    for problem in converted_problems:
-        match problem:
+    for converted_problem in converted_problems:
+        match converted_problem:
             case Qcm():
-                if randomise:
-                    problem = problem.randomise()
-
-                rows.append(problem.as_row())
+                rows.append(converted_problem.as_row())
             case OpenQuestion():
-                rows.append(problem.as_row())
+                rows.append(converted_problem.as_row())
             case MatchingQuestion():
                 if split_matching:
-                    for qcm in problem.as_qcms():
-                        if randomise:
-                            qcm = qcm.randomise()
-
-                        rows.append(qcm.as_row())
+                    for qcm in converted_problem.as_qcms():
+                        rows.append(qcm.randomise().as_row())
                 else:
-                    rows.append(problem.as_row())
+                    rows.append(converted_problem.as_row())
 
     workbook = xlsxwriter.Workbook(output_path)
 
